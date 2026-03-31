@@ -1,24 +1,7 @@
 const { MongoClient } = require("mongodb");
 
 // The uri string must be the connection string for the database (obtained on Atlas).
-const uri = "mongodb+srv://<user>:<password>@ckmdb.5oxvqja.mongodb.net/?retryWrites=true&w=majority";
-// Make sure the package.json contains:
-//   "dependencies": {
-//    "express": "^4.18.2",
-//    "mongodb": "^5.1.0"
-
-// Alternatively, to not expose the access keys, you may do:
-// MUST RUN: npm install dotenv  ON CONSOLE to begin
-// require('dotenv').config();  // To make the environment vars work, package.json must contain dependency-> "dotenv": "^16.0.0"
-// Then get the parameters hidden in .env do:
-// Do this=> const uri = process.env.mongo_uri;
-// We have also hidden the access keys in .env so alternatively we may use them:
-// so in this case, do these =>
-// const user = process.env.user;
-// const paswd = process.env.paswd;
-// uri = "mongodb+srv://" + user +":"+ paswd +"@ckmdb.5oxvqja.mongodb.net/?retryWrites=true&w=majority";
-
-
+const uri = "mongodb+srv://jmontz415:Immortal4Life@ckmdb.5oxvqja.mongodb.net/?retryWrites=true&w=majority";
 
 // --- This is the standard stuff to get it to work on the browser
 const express = require('express');
@@ -32,10 +15,22 @@ app.use(express.urlencoded({ extended: true }));
 
 // routes will go here
 
-// Default route:
+// Default route.
+// Provides a selection of routes to go to as links.
 app.get('/', function(req, res) {
-  const myquery = req.query;
-  var outstring = 'Starting... ';
+  var outstring = 'Default endpoint starting on date: ' + Date.now();
+  outstring += '<p><a href=\"./task1\">Go to Task 1</a>';
+  outstring += '<p><a href=\"./task2\">Go to Task 2</a>';
+  res.send(outstring);
+});
+
+app.get('/task1', function(req, res) {
+  var outstring = 'Starting Task 1 on date: ' + Date.now();
+  res.send(outstring);
+});
+
+app.get('/task2', function(req, res) {
+  var outstring = 'Starting Task 2 on date: ' + Date.now();
   res.send(outstring);
 });
 
@@ -44,23 +39,21 @@ app.get('/say/:name', function(req, res) {
 });
 
 
-// Route to access database:
-// Example: URL/api/mongo/12345
+// Access Example-1
+// Route to access database using a parameter:
+// access as ...app.github.dev/api/mongo/9876
 app.get('/api/mongo/:item', function(req, res) {
 const client = new MongoClient(uri);
-const searchKey = "{ partID: '" + req.params.item + "' }";
-console.log("Looking for: " + searchKey);
 
 async function run() {
   try {
-    const database = client.db('ckmdb');
-    const parts = database.collection('cmps415');
+    const database = client.db('mydbexample');
+    const parts = database.collection('mystuff');
 
-    // Hardwired Query for a part that has partID '12345'
-    // const query = { partID: '12345' };
-    // But we will use the parameter provided with the route: URL/api/mongo/12345
-    
-    const query = { partID: req.params.item };
+    // Here we make a search query where the key is hardwired to 'partID' 
+    // and the value is picked from the input parameter that comes in the route
+     const query = { partID: req.params.item };
+     console.log("Looking for: " + query);
 
     const part = await parts.findOne(query);
     console.log(part);
@@ -75,3 +68,73 @@ run().catch(console.dir);
 });
 
 
+// Access Example-2
+// Route to access database using two parameters:
+app.get('/api/mongo2/:inpkey&:item', function(req, res) {
+// access as ...app.github.dev/api/mongo2/partID&12345
+console.log("inpkey: " + req.params.inpkey + " item: " + req.params.item);
+
+const client = new MongoClient(uri);
+
+async function run() {
+  try {
+    const database = client.db('mydbexample');
+    const where2look = database.collection('mystuff');
+
+    // Here we will make a query object using the parameters provided with the route
+    // as they key:value pairs
+    const query = {};
+    query[req.params.inpkey]= req.params.item;
+
+    console.log("Looking for: " + JSON.stringify(query));
+
+    const part = await where2look.findOne(query);
+    console.log('Found this entry: ', part);
+    res.send('Found this: ' + JSON.stringify(part));  //Use stringify to print a json
+
+  } finally {
+    // Ensures that the client will close when you finish/error
+    await client.close();
+  }
+}
+run().catch(console.dir);
+});
+
+
+// Route to write to the database:
+// Access like this:  https://.....app.github.dev/api/mongowrite/partID&54321
+// References:
+// https://www.mongodb.com/docs/drivers/node/current/usage-examples/insertOne
+// https://www.mongodb.com/docs/drivers/node/current/usage-examples/insertMany
+
+app.get('/api/mongowrite/:inpkey&:inpval', function(req, res) {
+console.log("PARAMS: inpkey: " + req.params.inpkey + " inpval: " + req.params.inpval);
+
+const client = new MongoClient(uri);
+
+// The following is the document to insert (made up with input parameters) :
+// First I make a document object using static fields
+const doc2insert = { 
+  name: 'Cris', 
+  Description: 'This is a test', };
+// Additional fields using inputs:
+  doc2insert[req.params.inpkey]=req.params.inpval;
+
+console.log("Adding: " + doc2insert);
+
+async function run() {
+  try {
+    const database = client.db('mydbexample');
+    const where2put = database.collection('mystuff');
+
+    const doit = await where2put.insertOne(doc2insert);
+    console.log(doit);
+    res.send('Got this: ' + JSON.stringify(doit));  //Use stringify to print a json
+
+  } finally {
+    // Ensures that the client will close when you finish/error
+    await client.close();
+  }
+}
+run().catch(console.dir);
+});
